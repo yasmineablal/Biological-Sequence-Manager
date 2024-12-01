@@ -1,0 +1,45 @@
+def encode_ncp(sequence):
+    ncp_encoding = []
+    for nucleotide in sequence:
+        if nucleotide in {'C', 'T'}:
+            r = 0
+        else:def encode_ncp(sequence):
+    ncp_encoding = []
+    for nucleotide in sequence:
+        if nucleotide in {'C', 'T'}:
+            r = 0
+        else:
+            r = 1
+        if nucleotide in {'C', 'G'}:
+            h = 0
+        else:
+            h = 1
+        if nucleotide in {'G', 'T'}:
+            f = 0
+        else:
+            f = 1
+        ncp_encoding.append((r, h, f))
+    return ncp_encoding
+
+def encode_nd(sequence):
+    nd_encoding = []
+    for i in range(len(sequence)):
+        count = sum(1 for k in range(i+1) if sequence[k] == sequence[i])
+        nd_value = count / (i + 1)
+        nd_encoding.append(nd_value)
+    return nd_encoding
+
+def encode_eiip(sequence):
+    eiip_values = {'T': 0.1335, 'A': 0.1260, 'G': 0.0806, 'C': 0.1340}
+    eiip_encoding = [eiip_values[nucleotide] for nucleotide in sequence]
+    return eiip_encoding
+
+def encode_ncp_nd(sequence):
+    ncp_encoding = encode_ncp(sequence)
+    nd_encoding = encode_nd(sequence)
+    combined_encoding = [(*ncp, nd) for ncp, nd in zip(ncp_encoding, nd_encoding)]
+    return combined_encoding
+
+def calculate_cg_content(sequence):
+    cg_count = sequence.count('C') + sequence.count('G')
+    return (cg_count / len(sequence)) * 100
