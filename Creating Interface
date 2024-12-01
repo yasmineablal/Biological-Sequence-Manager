@@ -1,0 +1,576 @@
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Gestionnaire de Séquences Biologiques")
+        self.setGeometry(100, 100, 1000, 800)
+        self.initUI()
+
+    def initUI(self):
+        self.main_widget = QWidget(self)
+        self.setCentralWidget(self.main_widget)
+
+        self.layout = QVBoxLayout()
+        self.main_widget.setLayout(self.layout)
+
+        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setSpacing(10)
+        self.main_widget.setStyleSheet("background-color: #f5f5f5;")
+
+        # Add the "Bio Informatique" phrase
+        self.bio_informatique_label = QLabel("Bio Informatique")
+        self.bio_informatique_label.setFont(QFont('Arial', 24, QFont.Bold))
+        self.bio_informatique_label.setAlignment(Qt.AlignCenter)
+        self.bio_informatique_label.setStyleSheet("""
+            color: #007bff;
+            background-color: #e9f5ff;
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+        """)
+        self.layout.addWidget(self.bio_informatique_label)
+
+        # Add the descriptions
+        self.description_label = QLabel("""
+            <h2>Nucleotide Chemical Property (NCP) Feature Encoding</h2>
+            <p>The variety of chemical structures in nucleotides is essential, with ring structures, hydrogen bonds, and functional groups being the most important. Pyrimidines and purines share the six-membered ring as a chemical property. Purines A and G have a pentagon and a hexagon in general, whereas pyrimidines C and T have only one hexagon. In terms of hydrogen bonds, it is worth noting that the number of hydrogen bond donors is unequal, resulting in the formation of three hydrogen bonds between C and G and two between A and T, in turn leading to changes in the strength of hydrogen bonds. Furthermore, ketone groups are closely related to G and T, but A and C are more important for the structural composition of amino.</p>
+
+            <h2>Nucleotide Density (ND) Feature Encoding</h2>
+            <p>The nucleotide density (ND) can measure the correlation of position and frequency by extracting nucleotide weight information within a sequence. The NCP- and ND-encoding methods have been successfully applied in bioinformatics such as motif discovery. The existing studies have combined them to form NCP-ND feature encoding.</p>
+
+            <h2>Electron-Ion Interaction Pseudopotential (EIIP) Feature Encoding</h2>
+            <p>By measuring the energy of delocalized electrons in nucleotides, the electron-ion interaction pseudopotential (EIIP) is a single indicator sequence that shows how the free electron energies are distributed throughout the DNA sequence. EIIP represents the nucleotides T, A, G, and C as 0.1335, 0.1260, 0.0806, and 0.1340, respectively, which can reduce the computing cost.</p>
+        """)
+        self.description_label.setFont(QFont('Arial', 12))
+        self.description_label.setAlignment(Qt.AlignLeft)
+        self.description_label.setWordWrap(True)
+        self.layout.addWidget(self.description_label)
+
+        self.sequence_label = QLabel("Séquence:")
+        self.sequence_label.setFont(QFont('Arial', 14))
+
+        self.sequence_input = QLineEdit()
+        self.sequence_input.setFont(QFont('Arial', 14))
+
+        self.add_button = QPushButton("Ajouter")
+        self.add_button.setStyleSheet("""
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+        """)
+        self.add_button.clicked.connect(self.add_sequence)
+
+        self.delete_button = QPushButton("Supprimer")
+        self.delete_button.setStyleSheet("""
+            QPushButton {
+                background-color: #dc3545;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+        """)
+        self.delete_button.clicked.connect(self.delete_sequence)
+
+        self.import_button = QPushButton("Importer CSV")
+        self.import_button.setStyleSheet("""
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #0056b3;
+            }
+        """)
+        self.import_button.clicked.connect(self.import_csv)
+
+        self.export_button = QPushButton("Télécharger la base de données")
+        self.export_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ffc107;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #e0a800;
+            }
+        """)
+        self.export_button.clicked.connect(self.export_database)
+
+        self.sequence_table = QTableWidget()
+        self.sequence_table.setColumnCount(6)
+        self.sequence_table.setHorizontalHeaderLabels(["ID", "Séquence", "NCP", "ND", "EIIP", "GC%"])
+        self.sequence_table.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #d3d3d3;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background-color: #e1e1e1;
+                padding: 5px;
+                border: 1px solid #d3d3d3;
+                font-size: 14px;
+            }
+        """)
+
+        self.layout.addWidget(self.sequence_label)
+        self.layout.addWidget(self.sequence_input)
+
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.add_button)
+        button_layout.addWidget(self.delete_button)
+        button_layout.addWidget(self.import_button)
+        button_layout.addWidget(self.export_button)
+        self.layout.addLayout(button_layout)
+
+        self.layout.addWidget(self.sequence_table)
+
+        self.update_table()
+
+    def db_connect(self):
+        return pymysql.connect(host='127.0.0.1', user='root', password='', db='biologix', charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
+
+    def update_table(self):
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT sequence.id, sequence.sequence, ncp_encoding.encoding AS ncp, nd_encoding.encoding AS nd, 
+                           eiip_encoding.encoding AS eiip, cg_content.content AS cg
+                    FROM sequence
+                    LEFT JOIN ncp_encoding ON sequence.id = ncp_encoding.sequence_id
+                    LEFT JOIN nd_encoding ON sequence.id = nd_encoding.sequence_id
+                    LEFT JOIN eiip_encoding ON sequence.id = eiip_encoding.sequence_id
+                    LEFT JOIN cg_content ON sequence.id = cg_content.sequence_id
+                """)
+                rows = cursor.fetchall()
+
+                self.sequence_table.setRowCount(len(rows))
+                for row_idx, row in enumerate(rows):
+                    self.sequence_table.setItem(row_idx, 0, QTableWidgetItem(str(row['id'])))
+                    self.sequence_table.setItem(row_idx, 1, QTableWidgetItem(row['sequence']))
+                    self.sequence_table.setItem(row_idx, 2, QTableWidgetItem(row['ncp']))
+                    self.sequence_table.setItem(row_idx, 3, QTableWidgetItem(row['nd']))
+                    self.sequence_table.setItem(row_idx, 4, QTableWidgetItem(row['eiip']))
+                    self.sequence_table.setItem(row_idx, 5, QTableWidgetItem(str(row['cg'])))
+        finally:
+            connection.close()
+
+    def add_sequence(self):
+        sequence = self.sequence_input.text().upper()
+        if not sequence:
+            QMessageBox.warning(self, "Erreur", "La séquence ne peut pas être vide.")
+            return
+
+        ncp_encoding = encode_ncp(sequence)
+        nd_encoding = encode_nd(sequence)
+        eiip_encoding = encode_eiip(sequence)
+        cg_content = calculate_cg_content(sequence)
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("INSERT INTO sequence (sequence) VALUES (%s)", (sequence,))
+                sequence_id = cursor.lastrowid
+                cursor.execute("INSERT INTO ncp_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(ncp_encoding)))
+                cursor.execute("INSERT INTO nd_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(nd_encoding)))
+                cursor.execute("INSERT INTO eiip_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(eiip_encoding)))
+                cursor.execute("INSERT INTO cg_content (sequence_id, content) VALUES (%s, %s)", (sequence_id, cg_content))
+
+            connection.commit()
+            QMessageBox.information(self, "Succès", "Séquence ajoutée avec succès.")
+            self.update_table()
+        finally:
+            connection.close()
+
+    def delete_sequence(self):
+        sequence_id, ok = QInputDialog.getInt(self, "Supprimer Séquence", "Entrez l'ID de la séquence à supprimer:")
+        if not ok:
+            return
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM sequence WHERE id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM ncp_encoding WHERE sequence_id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM nd_encoding WHERE sequence_id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM eiip_encoding WHERE sequence_id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM cg_content WHERE sequence_id = %s", (sequence_id,))
+
+            connection.commit()
+            QMessageBox.information(self, "Succès", "Séquence supprimée avec succès.")
+            self.update_table()
+        finally:
+            connection.close()
+
+    def import_csv(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Importer CSV", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                with open(file_path, newline='') as csvfile:
+                    csv_reader = csv.reader(csvfile)
+                    for row in csv_reader:
+                        sequence = row[0].upper()
+                        if not sequence:
+                            continue
+
+                        ncp_encoding = encode_ncp(sequence)
+                        nd_encoding = encode_nd(sequence)
+                        eiip_encoding = encode_eiip(sequence)
+                        cg_content = calculate_cg_content(sequence)
+
+                        cursor.execute("INSERT INTO sequence (sequence) VALUES (%s)", (sequence,))
+                        sequence_id = cursor.lastrowid
+                        cursor.execute("INSERT INTO ncp_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(ncp_encoding)))
+                        cursor.execute("INSERT INTO nd_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(nd_encoding)))
+                        cursor.execute("INSERT INTO eiip_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(eiip_encoding)))
+                        cursor.execute("INSERT INTO cg_content (sequence_id, content) VALUES (%s, %s)", (sequence_id, cg_content))
+
+            connection.commit()
+            QMessageBox.information(self, "Succès", "Séquences importées avec succès.")
+            self.update_table()
+        finally:
+            connection.close()
+
+    def export_database(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "Télécharger la base de données", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Gestionnaire de Séquences Biologiques")
+        self.setGeometry(100, 100, 1000, 800)
+        self.initUI()
+
+    def initUI(self):
+        self.main_widget = QWidget(self)
+        self.setCentralWidget(self.main_widget)
+
+        self.layout = QVBoxLayout()
+        self.main_widget.setLayout(self.layout)
+
+        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setSpacing(10)
+        self.main_widget.setStyleSheet("background-color: #f5f5f5;")
+
+        # Add the "Bio Informatique" phrase
+        self.bio_informatique_label = QLabel("Bio Informatique")
+        self.bio_informatique_label.setFont(QFont('Arial', 24, QFont.Bold))
+        self.bio_informatique_label.setAlignment(Qt.AlignCenter)
+        self.bio_informatique_label.setStyleSheet("""
+            color: #007bff;
+            background-color: #e9f5ff;
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+        """)
+        self.layout.addWidget(self.bio_informatique_label)
+
+        # Add the descriptions
+        self.description_label = QLabel("""
+            <h2>Nucleotide Chemical Property (NCP) Feature Encoding</h2>
+            <p>The variety of chemical structures in nucleotides is essential, with ring structures, hydrogen bonds, and functional groups being the most important. Pyrimidines and purines share the six-membered ring as a chemical property. Purines A and G have a pentagon and a hexagon in general, whereas pyrimidines C and T have only one hexagon. In terms of hydrogen bonds, it is worth noting that the number of hydrogen bond donors is unequal, resulting in the formation of three hydrogen bonds between C and G and two between A and T, in turn leading to changes in the strength of hydrogen bonds. Furthermore, ketone groups are closely related to G and T, but A and C are more important for the structural composition of amino.</p>
+
+            <h2>Nucleotide Density (ND) Feature Encoding</h2>
+            <p>The nucleotide density (ND) can measure the correlation of position and frequency by extracting nucleotide weight information within a sequence. The NCP- and ND-encoding methods have been successfully applied in bioinformatics such as motif discovery. The existing studies have combined them to form NCP-ND feature encoding.</p>
+
+            <h2>Electron-Ion Interaction Pseudopotential (EIIP) Feature Encoding</h2>
+            <p>By measuring the energy of delocalized electrons in nucleotides, the electron-ion interaction pseudopotential (EIIP) is a single indicator sequence that shows how the free electron energies are distributed throughout the DNA sequence. EIIP represents the nucleotides T, A, G, and C as 0.1335, 0.1260, 0.0806, and 0.1340, respectively, which can reduce the computing cost.</p>
+        """)
+        self.description_label.setFont(QFont('Arial', 12))
+        self.description_label.setAlignment(Qt.AlignLeft)
+        self.description_label.setWordWrap(True)
+        self.layout.addWidget(self.description_label)
+
+        self.sequence_label = QLabel("Séquence:")
+        self.sequence_label.setFont(QFont('Arial', 14))
+
+        self.sequence_input = QLineEdit()
+        self.sequence_input.setFont(QFont('Arial', 14))
+
+        self.add_button = QPushButton("Ajouter")
+        self.add_button.setStyleSheet("""
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+        """)
+        self.add_button.clicked.connect(self.add_sequence)
+
+        self.delete_button = QPushButton("Supprimer")
+        self.delete_button.setStyleSheet("""
+            QPushButton {
+                background-color: #dc3545;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+        """)
+        self.delete_button.clicked.connect(self.delete_sequence)
+
+        self.import_button = QPushButton("Importer CSV")
+        self.import_button.setStyleSheet("""
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #0056b3;
+            }
+        """)
+        self.import_button.clicked.connect(self.import_csv)
+
+        self.export_button = QPushButton("Télécharger la base de données")
+        self.export_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ffc107;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #e0a800;
+            }
+        """)
+        self.export_button.clicked.connect(self.export_database)
+
+        self.sequence_table = QTableWidget()
+        self.sequence_table.setColumnCount(6)
+        self.sequence_table.setHorizontalHeaderLabels(["ID", "Séquence", "NCP", "ND", "EIIP", "GC%"])
+        self.sequence_table.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #d3d3d3;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QHeaderView::section {
+                background-color: #e1e1e1;
+                padding: 5px;
+                border: 1px solid #d3d3d3;
+                font-size: 14px;
+            }
+        """)
+
+        self.layout.addWidget(self.sequence_label)
+        self.layout.addWidget(self.sequence_input)
+
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.add_button)
+        button_layout.addWidget(self.delete_button)
+        button_layout.addWidget(self.import_button)
+        button_layout.addWidget(self.export_button)
+        self.layout.addLayout(button_layout)
+
+        self.layout.addWidget(self.sequence_table)
+
+        self.update_table()
+
+    def db_connect(self):
+        return pymysql.connect(host='127.0.0.1', user='root', password='', db='biologix', charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
+
+    def update_table(self):
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT sequence.id, sequence.sequence, ncp_encoding.encoding AS ncp, nd_encoding.encoding AS nd, 
+                           eiip_encoding.encoding AS eiip, cg_content.content AS cg
+                    FROM sequence
+                    LEFT JOIN ncp_encoding ON sequence.id = ncp_encoding.sequence_id
+                    LEFT JOIN nd_encoding ON sequence.id = nd_encoding.sequence_id
+                    LEFT JOIN eiip_encoding ON sequence.id = eiip_encoding.sequence_id
+                    LEFT JOIN cg_content ON sequence.id = cg_content.sequence_id
+                """)
+                rows = cursor.fetchall()
+
+                self.sequence_table.setRowCount(len(rows))
+                for row_idx, row in enumerate(rows):
+                    self.sequence_table.setItem(row_idx, 0, QTableWidgetItem(str(row['id'])))
+                    self.sequence_table.setItem(row_idx, 1, QTableWidgetItem(row['sequence']))
+                    self.sequence_table.setItem(row_idx, 2, QTableWidgetItem(row['ncp']))
+                    self.sequence_table.setItem(row_idx, 3, QTableWidgetItem(row['nd']))
+                    self.sequence_table.setItem(row_idx, 4, QTableWidgetItem(row['eiip']))
+                    self.sequence_table.setItem(row_idx, 5, QTableWidgetItem(str(row['cg'])))
+        finally:
+            connection.close()
+
+    def add_sequence(self):
+        sequence = self.sequence_input.text().upper()
+        if not sequence:
+            QMessageBox.warning(self, "Erreur", "La séquence ne peut pas être vide.")
+            return
+
+        ncp_encoding = encode_ncp(sequence)
+        nd_encoding = encode_nd(sequence)
+        eiip_encoding = encode_eiip(sequence)
+        cg_content = calculate_cg_content(sequence)
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("INSERT INTO sequence (sequence) VALUES (%s)", (sequence,))
+                sequence_id = cursor.lastrowid
+                cursor.execute("INSERT INTO ncp_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(ncp_encoding)))
+                cursor.execute("INSERT INTO nd_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(nd_encoding)))
+                cursor.execute("INSERT INTO eiip_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(eiip_encoding)))
+                cursor.execute("INSERT INTO cg_content (sequence_id, content) VALUES (%s, %s)", (sequence_id, cg_content))
+
+            connection.commit()
+            QMessageBox.information(self, "Succès", "Séquence ajoutée avec succès.")
+            self.update_table()
+        finally:
+            connection.close()
+
+    def delete_sequence(self):
+        sequence_id, ok = QInputDialog.getInt(self, "Supprimer Séquence", "Entrez l'ID de la séquence à supprimer:")
+        if not ok:
+            return
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM sequence WHERE id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM ncp_encoding WHERE sequence_id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM nd_encoding WHERE sequence_id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM eiip_encoding WHERE sequence_id = %s", (sequence_id,))
+                cursor.execute("DELETE FROM cg_content WHERE sequence_id = %s", (sequence_id,))
+
+            connection.commit()
+            QMessageBox.information(self, "Succès", "Séquence supprimée avec succès.")
+            self.update_table()
+        finally:
+            connection.close()
+
+    def import_csv(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Importer CSV", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                with open(file_path, newline='') as csvfile:
+                    csv_reader = csv.reader(csvfile)
+                    for row in csv_reader:
+                        sequence = row[0].upper()
+                        if not sequence:
+                            continue
+
+                        ncp_encoding = encode_ncp(sequence)
+                        nd_encoding = encode_nd(sequence)
+                        eiip_encoding = encode_eiip(sequence)
+                        cg_content = calculate_cg_content(sequence)
+
+                        cursor.execute("INSERT INTO sequence (sequence) VALUES (%s)", (sequence,))
+                        sequence_id = cursor.lastrowid
+                        cursor.execute("INSERT INTO ncp_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(ncp_encoding)))
+                        cursor.execute("INSERT INTO nd_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(nd_encoding)))
+                        cursor.execute("INSERT INTO eiip_encoding (sequence_id, encoding) VALUES (%s, %s)", (sequence_id, str(eiip_encoding)))
+                        cursor.execute("INSERT INTO cg_content (sequence_id, content) VALUES (%s, %s)", (sequence_id, cg_content))
+
+            connection.commit()
+            QMessageBox.information(self, "Succès", "Séquences importées avec succès.")
+            self.update_table()
+        finally:
+            connection.close()
+
+    def export_database(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "Télécharger la base de données", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        connection = self.db_connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT sequence.id, sequence.sequence, ncp_encoding.encoding AS ncp, nd_encoding.encoding AS nd, 
+                           eiip_encoding.encoding AS eiip, cg_content.content AS cg
+                    FROM sequence
+                    LEFT JOIN ncp_encoding ON sequence.id = ncp_encoding.sequence_id
+                    LEFT JOIN nd_encoding ON sequence.id = nd_encoding.sequence_id
+                    LEFT JOIN eiip_encoding ON sequence.id = eiip_encoding.sequence_id
+                    LEFT JOIN cg_content ON sequence.id = cg_content.sequence_id
+                """)
+                rows = cursor.fetchall()
+
+                with open(file_path, 'w', newline='') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerow(["ID", "Séquence", "NCP", "ND", "EIIP", "GC%"])
+                    for row in rows:
+                        csv_writer.writerow([row['id'], row['sequence'], row['ncp'], row['nd'], row['eiip'], row['cg']])
+
+            QMessageBox.information(self, "Succès", "Base de données exportée avec succès.")
+        finally:
+            connection.close()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+                    SELECT sequence.id, sequence.sequence, ncp_encoding.encoding AS ncp, nd_encoding.encoding AS nd, 
+                           eiip_encoding.encoding AS eiip, cg_content.content AS cg
+                    FROM sequence
+                    LEFT JOIN ncp_encoding ON sequence.id = ncp_encoding.sequence_id
+                    LEFT JOIN nd_encoding ON sequence.id = nd_encoding.sequence_id
+                    LEFT JOIN eiip_encoding ON sequence.id = eiip_encoding.sequence_id
+                    LEFT JOIN cg_content ON sequence.id = cg_content.sequence_id
+                """)
+                rows = cursor.fetchall()
+
+                with open(file_path, 'w', newline='') as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerow(["ID", "Séquence", "NCP", "ND", "EIIP", "GC%"])
+                    for row in rows:
+                        csv_writer.writerow([row['id'], row['sequence'], row['ncp'], row['nd'], row['eiip'], row['cg']])
+
+            QMessageBox.information(self, "Succès", "Base de données exportée avec succès.")
+        finally:
+            connection.close()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
